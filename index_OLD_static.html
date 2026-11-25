@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CivicPulse — Civic Issue & Pothole Reporter</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#f4f6fb;--surface:#ffffff;--border:#e2e6ef;--text:#1a1f36;--muted:#6b7694;
+    --accent:#2563eb;--accent2:#7c3aed;--green:#16a34a;--red:#dc2626;--orange:#ea580c;
+    --yellow:#ca8a04;--cyan:#0891b2;
+    --radius:12px;--shadow:0 2px 12px rgba(30,40,80,.08);
+  }
+  body{font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.6;min-height:100vh}
+
+  /* ── LAYOUT ── */
+  .shell{display:flex;height:100vh;overflow:hidden}
+  .sidebar{width:224px;background:#1a1f36;display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+  .main{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+  .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:sticky;top:0;z-index:10}
+  .content{padding:24px;flex:1}
+
+  /* ── SIDEBAR ── */
+  .logo{padding:20px 18px 10px;color:#fff;font-size:17px;font-weight:700;letter-spacing:-.3px;display:flex;align-items:center;gap:8px}
+  .logo-icon{width:30px;height:30px;background:var(--accent);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+  .logo-sub{font-size:10px;font-weight:400;color:#6b7694;display:block;letter-spacing:.4px}
+  .nav-section{padding:8px 16px 3px;font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:#4b5680;font-weight:700;margin-top:6px}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:9px 14px;margin:1px 6px;border-radius:8px;cursor:pointer;color:#a8b3cf;font-size:13px;transition:all .15s;user-select:none}
+  .nav-item:hover{background:rgba(255,255,255,.06);color:#e0e7ff}
+  .nav-item.active{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(37,99,235,.4)}
+  .nav-icon{width:18px;text-align:center;font-size:14px;flex-shrink:0}
+  .nav-badge{margin-left:auto;background:#ef4444;color:#fff;border-radius:99px;font-size:10px;padding:1px 6px;font-weight:700;line-height:1.6}
+  .sidebar-footer{margin-top:auto;padding:12px 10px;border-top:1px solid rgba(255,255,255,.07)}
+  .avatar-row{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;cursor:pointer;color:#a8b3cf}
+  .avatar{width:32px;height:32px;border-radius:50%;background:var(--accent2);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;flex-shrink:0}
+  .avatar-name{color:#e0e7ff;font-weight:600;font-size:12.5px}
+  .avatar-role{color:#6b7694;font-size:11px}
+
+  /* ── TOPBAR ── */
+  .page-title{font-weight:700;font-size:17px;display:flex;align-items:center;gap:8px}
+  .topbar-right{display:flex;align-items:center;gap:10px}
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{background:#1d4ed8;transform:translateY(-1px)}
+  .btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .btn-outline:hover{background:var(--bg);border-color:var(--accent);color:var(--accent)}
+  .btn-sm{padding:5px 10px;font-size:12px;border-radius:7px}
+  .btn-danger{background:var(--red);color:#fff}
+  .btn-danger:hover{background:#b91c1c}
+  .btn-success{background:var(--green);color:#fff}
+  .topbar-search{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:13px;width:220px;outline:none;color:var(--text)}
+  .topbar-search:focus{border-color:var(--accent)}
+  .notif-btn{width:36px;height:36px;border-radius:8px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;font-size:16px;transition:all .15s}
+  .notif-btn:hover{background:#eff6ff;border-color:var(--accent)}
+  .notif-dot{width:8px;height:8px;background:#ef4444;border-radius:50%;position:absolute;top:6px;right:6px;border:2px solid var(--surface)}
+
+  /* ── PANELS ── */
+  .panel{display:none}
+  .panel.active{display:block}
+
+  /* ── STAT CARDS ── */
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden;transition:box-shadow .2s}
+  .stat-card:hover{box-shadow:0 4px 20px rgba(30,40,80,.12)}
+  .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--radius) var(--radius) 0 0}
+  .stat-card.blue::before{background:var(--accent)}
+  .stat-card.orange::before{background:var(--orange)}
+  .stat-card.green::before{background:var(--green)}
+  .stat-card.purple::before{background:var(--accent2)}
+  .stat-card.red::before{background:var(--red)}
+  .stat-label{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+  .stat-value{font-size:30px;font-weight:800;line-height:1;letter-spacing:-1px}
+  .stat-sub{font-size:12px;color:var(--muted);margin-top:3px}
+  .stat-trend{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;margin-top:7px}
+  .trend-up{background:#dcfce7;color:var(--green)}
+  .trend-down{background:#fee2e2;color:var(--red)}
+  .trend-neutral{background:#f1f5f9;color:var(--muted)}
+
+  /* ── SECTION HEADER ── */
+  .sec-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+  .sec-title{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:6px}
+  .sec-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+
+  /* ── GRID LAYOUTS ── */
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+  .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
+  .g75{display:grid;grid-template-columns:7fr 5fr;gap:16px;margin-bottom:16px}
+  .g65{display:grid;grid-template-columns:6fr 4fr;gap:16px;margin-bottom:16px}
+  .mb16{margin-bottom:16px}
+
+  /* ── CARD ── */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);transition:box-shadow .2s}
+  .card:hover{box-shadow:0 4px 20px rgba(30,40,80,.1)}
+
+  /* ── TICKET ITEM ── */
+  .ticket-item{display:flex;gap:14px;padding:13px 0;border-bottom:1px solid var(--border);align-items:flex-start}
+  .ticket-item:last-child{border-bottom:none;padding-bottom:0}
+  .ticket-item:first-child{padding-top:0}
+  .ticket-thumb{width:58px;height:58px;border-radius:10px;flex-shrink:0;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:24px;border:1px solid var(--border)}
+  .ticket-body{flex:1;min-width:0}
+  .ticket-row1{display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap}
+  .ticket-id{font-size:11px;color:var(--muted);font-weight:700;font-family:monospace}
+  .ticket-title{font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:420px}
+  .ticket-meta{font-size:12px;color:var(--muted);display:flex;gap:12px;margin-top:4px;flex-wrap:wrap}
+  .ticket-actions{display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0}
+
+  /* ── BADGES ── */
+  .badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;line-height:1.5}
+  .badge-critical{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca}
+  .badge-high{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}
+  .badge-medium{background:#fefce8;color:#a16207;border:1px solid #fef08a}
+  .badge-low{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0}
+  .badge-pothole{background:#ede9fe;color:#6d28d9;border:1px solid #ddd6fe}
+  .badge-water{background:#ecfeff;color:#0e7490;border:1px solid #a5f3fc}
+  .badge-street{background:#fffbeb;color:#b45309;border:1px solid #fde68a}
+  .badge-garbage{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0}
+  .badge-other{background:#f8fafc;color:#475569;border:1px solid #e2e8f0}
+  .badge-merged{background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe}
+  .badge-new{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
+
+  /* ── STATUS ── */
+  .status{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap}
+  .status::before{content:'';width:6px;height:6px;border-radius:50%;flex-shrink:0}
+  .s-submitted{background:#f1f5f9;color:#475569}.s-submitted::before{background:#94a3b8}
+  .s-verified{background:#eff6ff;color:#1d4ed8}.s-verified::before{background:#3b82f6}
+  .s-assigned{background:#fef3c7;color:#92400e}.s-assigned::before{background:#f59e0b}
+  .s-inprogress{background:#fff7ed;color:#c2410c}.s-inprogress::before{background:#f97316}
+  .s-resolved{background:#f0fdf4;color:#166534}.s-resolved::before{background:#22c55e}
+  .s-closed{background:#f1f5f9;color:#334155}.s-closed::before{background:#64748b}
+  .s-reopened{background:#fef2f2;color:#b91c1c}.s-reopened::before{background:#ef4444}
+
+  /* ── PRIORITY BAR ── */
+  .priority-bar{height:4px;border-radius:99px;background:#e2e8f0;overflow:hidden;margin-top:7px}
+  .priority-fill{height:100%;border-radius:99px;transition:width .4s ease}
+  .p-critical{background:linear-gradient(90deg,#ef4444,#b91c1c);width:95%}
+  .p-high{background:linear-gradient(90deg,#f97316,#c2410c);width:72%}
+  .p-medium{background:linear-gradient(90deg,#eab308,#a16207);width:48%}
+  .p-low{background:linear-gradient(90deg,#22c55e,#15803d);width:25%}
+
+  /* ── MAP ── */
+  .map-box{border-radius:var(--radius);position:relative;overflow:hidden;border:1px solid var(--border)}
+  .map-controls{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:5px}
+  .map-ctrl{width:30px;height:30px;background:#fff;border:1px solid var(--border);border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:700;font-size:14px;box-shadow:var(--shadow);user-select:none;transition:all .15s}
+  .map-ctrl:hover{background:#eff6ff;border-color:var(--accent)}
+  .map-legend{position:absolute;bottom:12px;left:12px;background:rgba(255,255,255,.95);border:1px solid var(--border);border-radius:9px;padding:9px 13px;font-size:11px;backdrop-filter:blur(4px)}
+  .map-legend-row{display:flex;align-items:center;gap:7px;margin-bottom:3px;font-weight:500}
+  .map-legend-row:last-child{margin-bottom:0}
+  .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .map-pin{position:absolute;display:flex;flex-direction:column;align-items:center;cursor:pointer;transform:translate(-50%,-100%);transition:transform .15s}
+  .map-pin:hover{transform:translate(-50%,-110%)}
+  .map-pin-dot{border-radius:50%;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+  .map-pin-label{font-size:9.5px;font-weight:700;background:rgba(255,255,255,.95);border:1px solid var(--border);padding:2px 6px;border-radius:5px;margin-top:3px;white-space:nowrap;box-shadow:var(--shadow)}
+  .map-cluster{border-radius:50%;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;border:3px solid rgba(255,255,255,.8);cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.2);transition:transform .15s;position:absolute;transform:translate(-50%,-50%)}
+  .map-cluster:hover{transform:translate(-50%,-50%) scale(1.1)}
+
+  /* ── TIMELINE ── */
+  .timeline{position:relative;padding-left:28px}
+  .timeline::before{content:'';position:absolute;left:9px;top:4px;bottom:0;width:2px;background:var(--border)}
+  .tl-item{position:relative;margin-bottom:16px}
+  .tl-item:last-child{margin-bottom:0}
+  .tl-dot{position:absolute;left:-23px;top:2px;width:14px;height:14px;border-radius:50%;border:2.5px solid var(--surface);flex-shrink:0;z-index:1}
+  .tl-dot.done{background:var(--green)}
+  .tl-dot.active{background:var(--accent);box-shadow:0 0 0 4px rgba(37,99,235,.15)}
+  .tl-dot.pending{background:#cbd5e1}
+  .tl-dot.overdue{background:var(--red)}
+  .tl-title{font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .tl-time{font-size:11px;color:var(--muted);margin-top:1px}
+  .tl-desc{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.5}
+  .sla-chip{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px}
+  .sla-ok{background:#dcfce7;color:#15803d}
+  .sla-warn{background:#fef9c3;color:#a16207}
+  .sla-over{background:#fee2e2;color:#b91c1c}
+
+  /* ── AI BANNER ── */
+  .ai-banner{background:linear-gradient(135deg,#ede9fe 0%,#dbeafe 100%);border:1px solid #c4b5fd;border-radius:var(--radius);padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:16px}
+  .ai-icon{width:42px;height:42px;border-radius:11px;background:var(--accent2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;flex-shrink:0}
+  .conf-bar{display:flex;align-items:center;gap:8px;margin-top:6px}
+  .conf-track{flex:1;height:7px;background:#ddd6fe;border-radius:99px;overflow:hidden}
+  .conf-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#6366f1,#8b5cf6);transition:width .6s ease}
+  .conf-pct{font-size:11.5px;font-weight:800;color:var(--accent2)}
+
+  /* ── FORM ── */
+  .fg{margin-bottom:14px}
+  .fl{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;display:block}
+  .fi{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13.5px;outline:none;background:var(--surface);transition:border .15s;color:var(--text);font-family:inherit}
+  .fi:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.08)}
+  .fsel{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13.5px;outline:none;background:var(--surface);cursor:pointer;color:var(--text)}
+  .fsel:focus{border-color:var(--accent)}
+  .fta{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13.5px;outline:none;background:var(--surface);resize:vertical;min-height:80px;font-family:inherit;color:var(--text);transition:border .15s}
+  .fta:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.08)}
+  .upload-zone{border:2px dashed #cbd5e1;border-radius:var(--radius);padding:30px;text-align:center;cursor:pointer;background:var(--bg);transition:all .15s}
+  .upload-zone:hover{border-color:var(--accent);background:#eff6ff}
+  .geo-pill{display:inline-flex;align-items:center;gap:7px;background:#f0fdf4;color:var(--green);border:1px solid #bbf7d0;border-radius:9px;padding:8px 13px;font-size:12.5px;font-weight:600}
+  .voice-btn{display:inline-flex;align-items:center;gap:7px;background:#fdf4ff;color:var(--accent2);border:1.5px solid #e9d5ff;border-radius:9px;padding:8px 13px;font-size:12.5px;font-weight:600;cursor:pointer;transition:all .15s}
+  .voice-btn:hover{background:#f5f3ff;border-color:var(--accent2)}
+  .anon-row{display:flex;align-items:center;gap:12px;background:#faf5ff;border:1.5px solid #e9d5ff;border-radius:10px;padding:11px 14px;margin-bottom:14px}
+  .toggle{width:38px;height:21px;background:#e2e8f0;border-radius:99px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+  .toggle.on{background:var(--accent2)}
+  .toggle::after{content:'';position:absolute;top:3.5px;left:3.5px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+  .toggle.on::after{left:20.5px}
+
+  /* ── OFFLINE BANNER ── */
+  .offline-bar{background:linear-gradient(135deg,#fef9c3,#fefce8);border-bottom:2px solid #fde68a;padding:9px 24px;font-size:12.5px;color:#78350f;display:none;align-items:center;gap:10px;font-weight:600}
+
+  /* ── DUPLICATE CARD ── */
+  .dup-card{background:#faf5ff;border:1.5px solid #c4b5fd;border-radius:var(--radius);padding:14px 16px;margin-bottom:14px}
+  .dup-header{display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap}
+  .dup-title{font-weight:700;font-size:13.5px;color:var(--accent2)}
+
+  /* ── FILTER ROW ── */
+  .filter-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
+  .filter-btn{padding:5px 13px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--surface);color:var(--muted);transition:all .15s;user-select:none}
+  .filter-btn:hover:not(.active){border-color:var(--accent);color:var(--accent);background:#eff6ff}
+  .filter-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+  /* ── TABLE ── */
+  .tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+  .tbl th{background:var(--bg);text-align:left;padding:9px 12px;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border);white-space:nowrap}
+  .tbl td{padding:11px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+  .tbl tr:last-child td{border-bottom:none}
+  .tbl tbody tr:hover td{background:#fafbfe}
+  .dept-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:600;background:var(--bg);color:var(--muted);border:1px solid var(--border)}
+
+  /* ── PROGRESS ── */
+  .prog-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+  .prog-label{width:110px;font-size:12px;font-weight:600;color:var(--muted);flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .prog-track{flex:1;height:8px;background:var(--bg);border-radius:99px;overflow:hidden;border:1px solid var(--border)}
+  .prog-fill{height:100%;border-radius:99px;transition:width .5s ease}
+  .prog-pct{width:34px;text-align:right;font-size:12px;font-weight:700}
+
+  /* ── HOTSPOT ── */
+  .hs-row{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+  .hs-row:last-child{border-bottom:none;padding-bottom:0}
+  .hs-row:first-child{padding-top:0}
+  .hs-rank{width:24px;height:24px;border-radius:50%;background:var(--red);color:#fff;font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+  .hs-info{flex:1;min-width:0}
+  .hs-name{font-weight:600;font-size:13px}
+  .hs-sub{font-size:11.5px;color:var(--muted)}
+  .hs-count{font-size:12px;font-weight:800;color:var(--red);white-space:nowrap}
+
+  /* ── CHIP ── */
+  .chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+  .chip{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:600;background:var(--bg);border:1px solid var(--border);color:var(--muted)}
+
+  /* ── UPVOTE ── */
+  .upvote{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:8px;background:var(--bg);border:1.5px solid var(--border);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s}
+  .upvote:hover{border-color:var(--accent);color:var(--accent);background:#eff6ff}
+  .upvote.voted{border-color:var(--accent);color:var(--accent);background:#eff6ff}
+
+  /* ── BEFORE/AFTER ── */
+  .ba-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .ba-img{background:var(--bg);border-radius:9px;height:88px;display:flex;align-items:center;justify-content:center;font-size:28px;border:1px solid var(--border);flex-direction:column;gap:4px}
+  .ba-label{font-size:9.5px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.4px}
+
+  /* ── NOTIFICATION ── */
+  .notif-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);align-items:flex-start}
+  .notif-item:last-child{border-bottom:none;padding-bottom:0}
+  .notif-item:first-child{padding-top:0}
+  .notif-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+  .notif-title{font-weight:600;font-size:13px}
+  .notif-sub{font-size:12px;color:var(--muted);margin-top:1px}
+  .unread-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:5px;margin-left:auto}
+
+  /* ── STARS ── */
+  .stars{color:#f59e0b;font-size:16px;letter-spacing:2px;cursor:pointer}
+
+  /* ── SEVERITY RING ── */
+  .sev-ring{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;flex-shrink:0}
+
+  /* ── INLINE VARS CHART ── */
+  .bar-chart-row{display:flex;align-items:flex-end;gap:6px;height:120px;padding-bottom:4px}
+  .bar-col{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1}
+  .bar-fill{width:100%;border-radius:5px 5px 0 0;min-height:4px;transition:height .4s ease}
+  .bar-label{font-size:10px;color:var(--muted)}
+  .bar-val{font-size:11px;font-weight:700}
+
+  /* ── SCROLL BAR ── */
+  ::-webkit-scrollbar{width:5px;height:5px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:99px}
+
+  /* ── TOAST ── */
+  #toast{position:fixed;bottom:24px;right:24px;background:#1a1f36;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.3);transform:translateY(80px);opacity:0;transition:all .3s;z-index:999;display:flex;align-items:center;gap:8px}
+  #toast.show{transform:translateY(0);opacity:1}
+
+  /* ── RESPONSIVE ── */
+  @media(max-width:1100px){
+    .stat-grid{grid-template-columns:repeat(2,1fr)}
+    .g75,.g65{grid-template-columns:1fr}
+    .g2{grid-template-columns:1fr}
+  }
+  @media(max-width:768px){
+    .sidebar{width:200px}
+    .topbar-search{width:160px}
+    .g3{grid-template-columns:1fr 1fr}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ════════════ SIDEBAR ════════════ -->
+  <nav class="sidebar">
+    <div class="logo">
+      <div class="logo-icon">📍</div>
+      <div>
+        CivicPulse
+        <span class="logo-sub">Issue &amp; Pothole Reporter</span>
+      </div>
+    </div>
+
+    <div class="nav-section">Citizen</div>
+    <div class="nav-item active" onclick="show('report')">
+      <span class="nav-icon">📸</span> Report Issue
+    </div>
+    <div class="nav-item" onclick="show('mytickets')">
+      <span class="nav-icon">🎫</span> My Tickets
+      <span class="nav-badge">3</span>
+    </div>
+    <div class="nav-item" onclick="show('publicmap')">
+      <span class="nav-icon">🗺️</span> Public Map
+    </div>
+
+    <div class="nav-section">Authority</div>
+    <div class="nav-item" onclick="show('dashboard')">
+      <span class="nav-icon">📊</span> Dashboard
+    </div>
+    <div class="nav-item" onclick="show('queue')">
+      <span class="nav-icon">📋</span> Issue Queue
+      <span class="nav-badge">28</span>
+    </div>
+    <div class="nav-item" onclick="show('analytics')">
+      <span class="nav-icon">📈</span> Analytics
+    </div>
+    <div class="nav-item" onclick="show('predictions')">
+      <span class="nav-icon">🔮</span> Predictions
+    </div>
+
+    <div class="nav-section">System</div>
+    <div class="nav-item" onclick="show('notifications')">
+      <span class="nav-icon">🔔</span> Notifications
+      <span class="nav-badge">5</span>
+    </div>
+    <div class="nav-item" onclick="show('settings')">
+      <span class="nav-icon">⚙️</span> Settings
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="avatar-row">
+        <div class="avatar">PR</div>
+        <div>
+          <div class="avatar-name">Priya Rajan</div>
+          <div class="avatar-role">Ward 7 · Citizen</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ════════════ MAIN ════════════ -->
+  <div class="main">
+
+    <!-- Offline notice -->
+    <div class="offline-bar" id="offlineBar">
+      📶 You're offline — your report is saved locally and will upload when you reconnect automatically.
+    </div>
+
+    <!-- Top Bar -->
+    <div class="topbar">
+      <div class="page-title" id="pageTitle">📸 Report an Issue</div>
+      <div class="topbar-right">
+        <input class="topbar-search" placeholder="🔍  Search tickets, locations…">
+        <div class="notif-btn" onclick="show('notifications')">🔔<div class="notif-dot"></div></div>
+        <button class="btn btn-primary btn-sm" onclick="show('report')">+ New Report</button>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         PANEL · REPORT FORM
+    ══════════════════════════════════════════ -->
+    <div class="content panel active" id="panel-report">
+      <div class="g75">
+
+        <!-- LEFT -->
+        <div>
+          <!-- Duplicate detection -->
+          <div class="dup-card">
+            <div class="dup-header">
+              <span style="font-size:18px">🔗</span>
+              <span class="dup-title">Duplicate Detection Active</span>
+              <span class="badge badge-merged">12 reports merged nearby</span>
+            </div>
+            <div style="font-size:12.5px;color:var(--muted)">
+              We found <strong>12 similar reports</strong> within <strong>80 m</strong> of your GPS location over the last
+              <strong>5 days</strong>. Your report will be linked to <strong style="color:var(--accent)">TKT-00341</strong>
+              to increase its priority score automatically.
+            </div>
+            <div class="chips">
+              <span class="chip">📍 MG Road, Ward 7</span>
+              <span class="chip">🗓 Last: 2 days ago</span>
+              <span class="chip">👥 12 residents</span>
+              <span class="chip">🔄 Auto-merged</span>
+            </div>
+          </div>
+
+          <!-- AI Classification -->
+          <div class="ai-banner">
+            <div class="ai-icon">🤖</div>
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:13.5px">AI Classification Result</div>
+              <div style="font-size:12px;color:#5b21b6">Image analysed · 1 photo processed · Confidence score attached</div>
+              <div class="conf-bar">
+                <div class="conf-track"><div class="conf-fill" style="width:92%"></div></div>
+                <span class="conf-pct">92% Pothole</span>
+              </div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              <select class="fsel" style="width:148px;font-size:12.5px">
+                <option>🕳 Pothole</option>
+                <option>💡 Streetlight</option>
+                <option>💧 Water Leak</option>
+                <option>🗑 Garbage</option>
+                <option>❓ Other</option>
+              </select>
+              <div style="font-size:10.5px;color:var(--muted);margin-top:3px">Correct the category?</div>
+            </div>
+          </div>
+
+          <!-- Form card -->
+          <div class="card">
+            <div class="sec-header">
+              <div class="sec-title">📝 Issue Details</div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--green);font-weight:600">
+                ✓ Auto-saved
+              </div>
+            </div>
+
+            <!-- Anonymous toggle -->
+            <div class="anon-row">
+              <div class="toggle on" id="anonToggle" onclick="this.classList.toggle('on')"></div>
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--accent2)">🔒 Anonymous Report</div>
+                <div style="font-size:11.5px;color:var(--muted)">Your name &amp; identity will be hidden from public view. Identity is verified internally.</div>
+              </div>
+            </div>
+
+            <!-- Photo upload -->
+            <div class="fg">
+              <label class="fl">📸 Photo Evidence</label>
+              <div class="upload-zone" onclick="toast('📸 Camera / gallery opened — fake-image detection active')">
+                <div style="font-size:36px;margin-bottom:8px">🖼️</div>
+                <div style="font-size:13px;font-weight:600;color:var(--muted)">Tap to take a photo or upload from gallery</div>
+                <div style="font-size:11.5px;color:var(--muted);margin-top:4px">Fake-image &amp; AI manipulation detection enabled · Max 10 MB · JPEG / PNG / HEIC</div>
+              </div>
+            </div>
+
+            <div class="g2" style="margin-bottom:0">
+              <div class="fg" style="margin-bottom:0">
+                <label class="fl">📍 GPS Location</label>
+                <div class="geo-pill">✅ 12.9716° N, 77.5946° E · ±4 m</div>
+                <div style="font-size:11.5px;color:var(--muted);margin-top:5px">MG Road, Ward 7, Bangalore — captured automatically</div>
+              </div>
+              <div class="fg" style="margin-bottom:0">
+                <label class="fl">🕐 Timestamp</label>
+                <input class="fi" readonly value="2026-11-25  09:34 AM IST" style="font-family:monospace;font-size:12.5px;background:var(--bg)">
+              </div>
+            </div>
+
+            <div class="fg" style="margin-top:14px">
+              <label class="fl">📝 Short Description</label>
+              <textarea class="fta">Large pothole approx 1.5 m wide near Bus Stop #42. Dangerous for two-wheelers especially at night. Road surface has been deteriorating since the last monsoon.</textarea>
+            </div>
+
+            <div class="g2">
+              <div class="fg" style="margin-bottom:0">
+                <label class="fl">🛣 Road Type</label>
+                <select class="fsel">
+                  <option>Highway</option>
+                  <option selected>Main Road</option>
+                  <option>Side Lane</option>
+                  <option>Footpath</option>
+                  <option>Bridge / Overpass</option>
+                </select>
+              </div>
+              <div class="fg" style="margin-bottom:0">
+                <label class="fl">🌐 Language</label>
+                <select class="fsel">
+                  <option>English</option>
+                  <option>हिंदी (Hindi)</option>
+                  <option>ಕನ್ನಡ (Kannada)</option>
+                  <option>தமிழ் (Tamil)</option>
+                  <option>বাংলা (Bengali)</option>
+                  <option>मराठी (Marathi)</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="margin-top:14px;display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+              <div class="voice-btn" onclick="toast('🎤 Voice recording started — speak your description')">🎤 Record Voice Note</div>
+              <div style="font-size:12px;color:var(--muted)">For users who prefer not to type (accessibility feature)</div>
+            </div>
+
+            <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn btn-primary" style="flex:1;min-width:140px" onclick="submitReport()">🚀 Submit Report</button>
+              <button class="btn btn-outline" onclick="toast('💾 Saved offline — will sync when connection returns')">💾 Save Offline</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Severity + map pin + ticket preview -->
+        <div>
+
+          <!-- Severity Score -->
+          <div class="card mb16">
+            <div class="sec-title" style="margin-bottom:12px">⚠️ Severity Scoring</div>
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+              <div class="sev-ring" style="background:linear-gradient(135deg,#fee2e2,#fecaca);border:3px solid #ef4444">
+                <div style="font-size:24px;font-weight:900;color:var(--red);line-height:1">87</div>
+                <div style="font-size:9px;text-transform:uppercase;color:var(--red);font-weight:800;letter-spacing:.5px">Critical</div>
+              </div>
+              <div>
+                <div style="font-size:13px;font-weight:800;color:var(--red)">Priority: CRITICAL</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:2px">SLA Target: 24 hours</div>
+                <div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap">
+                  <span class="badge badge-critical">🚨 Escalated</span>
+                  <span class="badge badge-merged">🔗 +12 merged</span>
+                </div>
+              </div>
+            </div>
+            <div class="prog-row"><div class="prog-label">Category Risk</div><div class="prog-track"><div class="prog-fill" style="width:85%;background:var(--red)"></div></div><div class="prog-pct">85</div></div>
+            <div class="prog-row"><div class="prog-label">Road Danger</div><div class="prog-track"><div class="prog-fill" style="width:92%;background:var(--red)"></div></div><div class="prog-pct">92</div></div>
+            <div class="prog-row"><div class="prog-label">Report Count</div><div class="prog-track"><div class="prog-fill" style="width:75%;background:var(--orange)"></div></div><div class="prog-pct">75</div></div>
+            <div class="prog-row" style="margin-bottom:0"><div class="prog-label">Time Open</div><div class="prog-track"><div class="prog-fill" style="width:60%;background:var(--yellow)"></div></div><div class="prog-pct">60</div></div>
+          </div>
+
+          <!-- Map pin -->
+          <div class="card mb16">
+            <div class="sec-header"><div class="sec-title">📍 Pinned Location</div></div>
+            <div class="map-box" style="height:170px">
+              <svg width="100%" height="170" style="position:absolute;inset:0">
+                <rect fill="#e2f0eb" width="100%" height="170"/>
+                <rect x="0" y="75" width="100%" height="20" fill="#c8ddd5"/>
+                <rect x="45%" y="0" width="16" height="170" fill="#c8ddd5"/>
+                <line x1="0" y1="85" x2="100%" y2="85" stroke="#fff" stroke-width="1.5" stroke-dasharray="8,8" opacity=".5"/>
+                <rect x="8" y="8" width="38%" height="58" rx="5" fill="#c8e0d4" stroke="#a8c8bc" stroke-width="1"/>
+                <rect x="52%" y="10" width="38%" height="55" rx="5" fill="#c8e0d4" stroke="#a8c8bc" stroke-width="1"/>
+                <rect x="8" y="104" width="38%" height="55" rx="5" fill="#c8e0d4" stroke="#a8c8bc" stroke-width="1"/>
+                <rect x="52%" y="104" width="38%" height="55" rx="5" fill="#c8e0d4" stroke="#a8c8bc" stroke-width="1"/>
+              </svg>
+              <div class="map-pin" style="left:46%;top:88%">
+                <div class="map-pin-dot" style="background:var(--red);width:20px;height:20px"></div>
+                <div class="map-pin-label" style="color:var(--red);font-size:10px">📍 Your Report</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ticket preview -->
+          <div class="card">
+            <div class="sec-title" style="margin-bottom:10px">🎫 Auto-generated Ticket</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <span style="font-family:monospace;font-size:14px;font-weight:800;color:var(--accent)">#TKT-00342</span>
+              <span class="status s-submitted">Submitted</span>
+            </div>
+            <div style="font-size:12.5px;color:var(--muted)">📍 MG Road, Ward 7 · 🗓 25 Nov 2026 · 09:34 AM</div>
+            <div style="font-size:12.5px;margin-top:5px">🕳 Pothole <span style="color:var(--muted)">· Main Road</span></div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px;font-style:italic">"Large pothole 1.5 m wide near Bus Stop #42…"</div>
+            <div style="margin-top:9px;display:flex;gap:5px;flex-wrap:wrap">
+              <span class="badge badge-critical">🚨 Critical · 87</span>
+              <span class="badge badge-merged">🔗 +12 merged</span>
+              <span class="badge badge-pothole">🕳 Pothole</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         PANEL · MY TICKETS
+    ══════════════════════════════════════════ -->
+    <div class="content panel" id="panel-mytickets">
+      <div class="filter-row">
+        <button class="filter-btn active">All (3)</button>
+        <button class="filter-btn">🔴 Open</button>
+        <button class="filter-btn">🟡 In Progress</button>
+        <button class="filter-btn">🟢 Resolved</button>
+        <button class="filter-btn">🔁 Reopened</button>
+      </div>
+
+      <div class="g65">
+        <div>
+          <!-- TKT-00341 -->
+          <div class="card mb16">
+            <div class="ticket-item">
+              <div class="ticket-thumb">🕳</div>
+              <div class="ticket-body">
+                <div class="ticket-row1">
+                  <span class="ticket-id">#TKT-00341</span>
+                  <span class="badge badge-pothole">🕳 Pothole</span>
+                  <span class="badge badge-critical">Critical</span>
+                  <span class="badge badge-merged">🔗 12 merged</span>
+                </div>
+                <div class="ticket-title">Deep pothole on MG Road near Bus Stop #42</div>
+                <div class="ticket-meta">
+                  <span>📍 MG Road, Ward 7</span>
+                  <span>🗓 Nov 20, 2026</span>
+                  <span>👥 12 residents</span>
+                  <span>⏱ 5 days open</span>
+                </div>
+                <div class="priority-bar"><div class="priority-fill p-critical"></div></div>
+              </div>
+              <div class="ticket-actions">
+                <span class="status s-inprogress">In Progress</span>
+                <div class="upvote voted">👍 47</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TKT-00298 -->
+          <div class="card mb16">
+            <div class="ticket-item">
+              <div class="ticket-thumb">💡</div>
+              <div class="ticket-body">
+                <div class="ticket-row1">
+                  <span class="ticket-id">#TKT-00298</span>
+                  <span class="badge badge-street">💡 Streetlight</span>
+                  <span class="badge badge-high">High</span>
+                </div>
+                <div class="ticket-title">Streetlight out near Jayanagar Park — 3 consecutive nights</div>
+                <div class="ticket-meta">
+                  <span>📍 Jayanagar, Ward 9</span>
+                  <span>🗓 Nov 18, 2026</span>
+                  <span>👥 4 residents</span>
+                  <span>⏱ 7 days open</span>
+                </div>
+                <div class="priority-bar"><div class="priority-fill p-high"></div></div>
+              </div>
+              <div class="ticket-actions">
+                <span class="status s-assigned">Assigned</span>
+                <div class="upvote">👍 19</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TKT-00281 (resolved) -->
+          <div class="card">
+            <div class="ticket-item">
+              <div class="ticket-thumb">💧</div>
+              <div class="ticket-body">
+                <div class="ticket-row1">
+                  <span class="ticket-id">#TKT-00281</span>
+                  <span class="badge badge-water">💧 Water Leak</span>
+                  <span class="badge badge-medium">Medium</span>
+                </div>
+                <div class="ticket-title">Underground water pipe burst — Koramangala 5th Block</div>
+                <div class="ticket-meta">
+                  <span>📍 Koramangala, Ward 12</span>
+                  <span>🗓 Nov 15, 2026</span>
+                  <span>👥 8 residents</span>
+                  <span>⏱ Resolved in 9 days</span>
+                </div>
+                <div class="priority-bar"><div class="priority-fill p-medium"></div></div>
+              </div>
+              <div class="ticket-actions">
+                <span class="status s-resolved">Resolved</span>
+                <div class="stars">★★★★☆</div>
+              </div>
+            </div>
+            <!-- Before/After -->
+            <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+              <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px">📸 BEFORE &amp; AFTER</div>
+              <div class="ba-grid">
+                <div class="ba-img">🕳<div class="ba-label">Before — Nov 15</div></div>
+                <div class="ba-img" style="background:#f0fdf4;border-color:#bbf7d0">✅<div class="ba-label">After — Nov 24</div></div>
+              </div>
+              <div style="margin-top:9px;display:flex;gap:7px;flex-wrap:wrap">
+                <button class="btn btn-outline btn-sm">👍 Looks good!</button>
+                <button class="btn btn-danger btn-sm" onclick="toast('🔁 Ticket TKT-00281 has been reopened for review')">🔁 Reopen Ticket</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TIMELINE PANEL -->
+        <div class="card" style="height:fit-content">
+          <div class="sec-header">
+            <div class="sec-title">📋 TKT-00341 Timeline</div>
+            <span class="sla-chip sla-over">⏰ SLA Overdue</span>
+          </div>
+
+          <div class="timeline">
+            <div class="tl-item">
+              <div class="tl-dot done"></div>
+              <div class="tl-title">✅ Submitted <span class="sla-chip sla-ok">On time</span></div>
+              <div class="tl-time">Nov 20, 2026 · 09:34 AM</div>
+              <div class="tl-desc">Report received with 1 photo. AI: Pothole 92% confidence. Geo-tagged.</div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot done"></div>
+              <div class="tl-title">✅ Verified <span class="sla-chip sla-ok">On time</span></div>
+              <div class="tl-time">Nov 20, 2026 · 02:15 PM</div>
+              <div class="tl-desc">Field inspector confirmed. 12 duplicate reports merged. Priority escalated to Critical.</div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot done"></div>
+              <div class="tl-title">✅ Assigned <span class="sla-chip sla-warn">Near SLA</span></div>
+              <div class="tl-time">Nov 21, 2026 · 10:00 AM</div>
+              <div class="tl-desc">Assigned to Roads &amp; Infrastructure Dept. Crew ID: RD-047.</div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot active"></div>
+              <div class="tl-title">🔄 In Progress <span class="sla-chip sla-over">+2d Overdue</span></div>
+              <div class="tl-time">Nov 22, 2026 · 08:00 AM</div>
+              <div class="tl-desc">Crew dispatched. Material ordered. ETA for repair: Nov 27.</div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot pending"></div>
+              <div class="tl-title" style="color:var(--muted)">⏳ Resolved</div>
+              <div class="tl-time" style="color:var(--muted)">Expected: Nov 27, 2026</div>
+            </div>
+            <div class="tl-item">
+              <div class="tl-dot pending"></div>
+              <div class="tl-title" style="color:var(--muted)">⏳ Closed</div>
+              <div class="tl-time" style="color:var(--muted)">After resident confirmation &amp; rating</div>
+            </div>
+          </div>
+
+          <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px">Push Notifications Sent</div>
+            <div style="font-size:12.5px;display:flex;flex-direction:column;gap:6px">
+              <div>🔔 <strong>Verified</strong> — Nov 20, 2:15 PM</div>
+              <div>🔔 <strong>Assigned</strong> — Nov 21, 10:00 AM</div>
+              <div>🔔 <strong>In Progress</strong> — Nov 22, 8:00 AM</div>
+              <div style="color:var(--muted)">🕐 <em>Resolved</em> — Pending</div>
+              <div style="color:var(--muted)">🕐 <em>Closed</em> — Pending</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         PANEL · PUBLIC MAP
+    ══════════════════════════════════════════ -->
+    <div class="content panel" id="panel-publicmap">
+      <div class="g65">
+        <div>
+          <div class="card">
+            <div class="sec-header">
+              <div class="sec-title">🗺️ Public Issue Map — Ward 7, Bangalore</div>
+              <div class="sec-actions">
+                <button class="filter-btn active">All</button>
+                <button class="filter-btn">Open</button>
+                <button class="filter-btn">Resolved</button>
+                <button class="btn btn-primary btn-sm" onclick="toast('🔗 Map link copied to clipboard!')">Share Map</button>
+              </div>
+            </div>
+            <div class="map-box" style="height:440px">
+              <svg width="100%" height="440" style="position:absolute;inset:0;display:block">
+                <rect fill="#e0ede7" width="100%" height="440"/>
+                <rect x="0" y="200" width="100%" height="22" fill="#c8d9d2"/>
+                <rect x="0" y="130" width="100%" height="14" fill="#c8d9d2"/>
+                <rect x="0" y="310" width="100%" height="11" fill="#c8d9d2"/>
+                <rect x="130" y="0" width="20" height="440" fill="#c8d9d2"/>
+                <rect x="360" y="0" width="14" height="440" fill="#c8d9d2"/>
+                <rect x="540" y="0" width="10" height="440" fill="#c8d9d2"/>
+                <line x1="0" y1="211" x2="100%" y2="211" stroke="#fff" stroke-width="1.5" stroke-dasharray="12,10" opacity=".55"/>
+                <line x1="140" y1="0" x2="140" y2="440" stroke="#fff" stroke-width="1.5" stroke-dasharray="12,10" opacity=".55"/>
+                <rect x="8" y="8" width="112" height="110" rx="6" fill="#cce0d6" stroke="#a8c8bc"/>
+                <rect x="162" y="12" width="186" height="105" rx="6" fill="#cce0d6" stroke="#a8c8bc"/>
+                <rect x="384" y="10" width="144" height="108" rx="6" fill="#cce0d6" stroke="#a8c8bc"/>
+                <rect x="8" y="225" width="112" height="72" rx="6" fill="#cce0d6" stroke="#a8c8bc"/>
+                <rect x="162" y="224" width="186" height="74" rx="6" fill="#cce0d6" stroke="#a8c8bc"/>
+                <rect x="384" y="224" width="148" height="74" rx="6" fill="#cce0d6" stroke="#a8c8bc"/>
+                <rect x="8" y="324" width="112" height="106" rx="6" fill="#cce0d6" stroke="#a8c8bc"/>
+                <rect x="162" y="323" width="186" height="107" rx="6" fill="#cce0d6" stroke="#a8c8bc"/>
+                <rect x="384" y="323" width="148" height="107" rx="6" fill="#cce0d6" stroke="#a8c8bc"/>
+                <rect x="554" y="224" width="92" height="74" rx="6" fill="#cce0d6" stroke="#a8c8bc"/>
+                <rect x="554" y="323" width="92" height="107" rx="6" fill="#cce0d6" stroke="#a8c8bc"/>
+              </svg>
+
+              <div class="map-cluster" style="left:9%;top:46%;width:40px;height:40px;background:#ef4444;font-size:14px">12</div>
+              <div class="map-pin" style="left:38%;top:48%">
+                <div class="map-pin-dot" style="background:#f97316;width:14px;height:14px"></div>
+                <div class="map-pin-label">💡 Streetlight</div>
+              </div>
+              <div class="map-pin" style="left:62%;top:48%">
+                <div class="map-pin-dot" style="background:#0891b2;width:14px;height:14px"></div>
+                <div class="map-pin-label">💧 Water Leak</div>
+              </div>
+              <div class="map-pin" style="left:28%;top:74%">
+                <div class="map-pin-dot" style="background:#22c55e;width:14px;height:14px"></div>
+                <div class="map-pin-label">✅ Resolved</div>
+              </div>
+              <div class="map-pin" style="left:76%;top:36%">
+                <div class="map-pin-dot" style="background:#6d28d9;width:14px;height:14px"></div>
+                <div class="map-pin-label">🗑 Garbage</div>
+              </div>
+              <div class="map-pin" style="left:55%;top:73%">
+                <div class="map-pin-dot" style="background:#ef4444;width:14px;height:14px"></div>
+                <div class="map-pin-label">🕳 Pothole</div>
+              </div>
+
+              <div class="map-controls">
+                <div class="map-ctrl">+</div>
+                <div class="map-ctrl">−</div>
+                <div class="map-ctrl" title="My location">📍</div>
+                <div class="map-ctrl" title="Heat map">🌡</div>
+              </div>
+              <div class="map-legend">
+                <div style="font-weight:700;margin-bottom:5px;font-size:11px">Issue Types</div>
+                <div class="map-legend-row"><div class="dot" style="background:#ef4444"></div>Pothole</div>
+                <div class="map-legend-row"><div class="dot" style="background:#f97316"></div>Streetlight</div>
+                <div class="map-legend-row"><div class="dot" style="background:#0891b2"></div>Water Leak</div>
+                <div class="map-legend-row"><div class="dot" style="background:#6d28d9"></div>Garbage</div>
+                <div class="map-legend-row"><div class="dot" style="background:#22c55e"></div>Resolved</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card mb16">
+            <div class="sec-title" style="margin-bottom:12px">🔥 Trending Issues — Upvote to prioritise</div>
+            <div class="ticket-item">
+              <div class="ticket-thumb" style="width:48px;height:48px;font-size:20px">🕳</div>
+              <div class="ticket-body">
+                <div class="ticket-row1"><span class="ticket-id">#341</span><span class="badge badge-critical">Critical</span></div>
+                <div style="font-size:12.5px;font-weight:600">Pothole — MG Road</div>
+                <div style="display:flex;gap:7px;margin-top:5px;flex-wrap:wrap">
+                  <div class="upvote voted" onclick="this.textContent='👍 48';toast('👍 Upvoted! This issue now has 48 votes')">👍 47</div>
+                  <span class="status s-inprogress">In Progress</span>
+                </div>
+              </div>
+            </div>
+            <div class="ticket-item">
+              <div class="ticket-thumb" style="width:48px;height:48px;font-size:20px">💧</div>
+              <div class="ticket-body">
+                <div class="ticket-row1"><span class="ticket-id">#289</span><span class="badge badge-high">High</span></div>
+                <div style="font-size:12.5px;font-weight:600">Water Leak — 5th Block</div>
+                <div style="display:flex;gap:7px;margin-top:5px;flex-wrap:wrap">
+                  <div class="upvote" onclick="this.classList.add('voted');this.textContent='👍 32';toast('👍 Upvoted!')">👍 31</div>
+                  <span class="status s-assigned">Assigned</span>
+                </div>
+              </div>
+            </div>
+            <div class="ticket-item">
+              <div class="ticket-thumb" style="width:48px;height:48px;font-size:20px">🗑</div>
+              <div class="ticket-body">
+                <div class="ticket-row1"><span class="ticket-id">#310</span><span class="badge badge-medium">Medium</span></div>
+                <div style="font-size:12.5px;font-weight:600">Garbage — Indiranagar</div>
+                <div style="display:flex;gap:7px;margin-top:5px;flex-wrap:wrap">
+                  <div class="upvote" onclick="this.classList.add('voted');this.textContent='👍 19';toast('👍 Upvoted!')">👍 18</div>
+                  <span class="status s-verified">Verified</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="sec-title" style="margin-bottom:10px">📸 Before &amp; After — TKT-00281</div>
+            <div class="ba-grid">
+              <div class="ba-img">🕳<div class="ba-label">Before — Nov 15</div></div>
+              <div class="ba-img" style="background:#f0fdf4;border-color:#bbf7d0">✅<div class="ba-label">After — Nov 24</div></div>
+            </div>
+            <div style="margin-top:10px">
+              <div style="font-size:12px;color:var(--muted);margin-bottom:5px">Rate the quality of the fix:</div>
+              <div class="stars">★★★★☆</div>
+              <div style="margin-top:9px;display:flex;gap:7px;flex-wrap:wrap">
+                <button class="btn btn-success btn-sm">👍 Looks Good</button>
+                <button class="btn btn-danger btn-sm" onclick="toast('🔁 TKT-00281 reopened — authorities will be notified')">🔁 Reopen</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         PANEL · DASHBOARD
+    ══════════════════════════════════════════ -->
+    <div class="content panel" id="panel-dashboard">
+      <div class="stat-grid">
+        <div class="stat-card blue">
+          <div class="stat-label">Total Open Issues</div>
+          <div class="stat-value">247</div>
+          <div class="stat-sub">Across 14 wards</div>
+          <div class="stat-trend trend-up">↑ +12 this week</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-label">Critical / High Priority</div>
+          <div class="stat-value">38</div>
+          <div class="stat-sub">Need action in &lt;24 h</div>
+          <div class="stat-trend trend-down">↓ −5 from yesterday</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">Resolved This Month</div>
+          <div class="stat-value">183</div>
+          <div class="stat-sub">Avg resolution: 4.2 days</div>
+          <div class="stat-trend trend-up">↑ +18% vs last month</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-label">SLA Breaches</div>
+          <div class="stat-value">14</div>
+          <div class="stat-sub">Roads: 9 · Water: 5</div>
+          <div class="stat-trend trend-neutral">↓ −3 this week</div>
+        </div>
+      </div>
+
+      <div class="g65">
+        <div class="card">
+          <div class="sec-header">
+            <div class="sec-title">🗺 Clustered Authority Map</div>
+            <div class="sec-actions">
+              <select class="fsel" style="width:120px;padding:5px 9px;font-size:12px">
+                <option>All Wards</option><option>Ward 7</option><option>Ward 9</option><option>Ward 12</option>
+              </select>
+              <select class="fsel" style="width:130px;padding:5px 9px;font-size:12px">
+                <option>All Categories</option><option>Pothole</option><option>Water Leak</option><option>Streetlight</option>
+              </select>
+            </div>
+          </div>
+          <div class="map-box" style="height:340px">
+            <svg width="100%" height="340" style="position:absolute;inset:0;display:block">
+              <rect fill="#ddeee8" width="100%" height="340"/>
+              <rect x="0" y="155" width="100%" height="20" fill="#bdd8d0"/>
+              <rect x="0" y="90" width="100%" height="12" fill="#bdd8d0"/>
+              <rect x="0" y="250" width="100%" height="10" fill="#bdd8d0"/>
+              <rect x="118" y="0" width="18" height="340" fill="#bdd8d0"/>
+              <rect x="330" y="0" width="13" height="340" fill="#bdd8d0"/>
+              <rect x="510" y="0" width="9" height="340" fill="#bdd8d0"/>
+              <rect x="8" y="8" width="100" height="72" rx="5" fill="#bdd4cc" stroke="#9ec4bc"/>
+              <rect x="148" y="10" width="170" height="68" rx="5" fill="#bdd4cc" stroke="#9ec4bc"/>
+              <rect x="354" y="9" width="145" height="70" rx="5" fill="#bdd4cc" stroke="#9ec4bc"/>
+              <rect x="8" y="176" width="100" height="62" rx="5" fill="#bdd4cc" stroke="#9ec4bc"/>
+              <rect x="148" y="175" width="170" height="63" rx="5" fill="#bdd4cc" stroke="#9ec4bc"/>
+              <rect x="354" y="175" width="145" height="63" rx="5" fill="#bdd4cc" stroke="#9ec4bc"/>
+              <rect x="8" y="264" width="100" height="66" rx="5" fill="#bdd4cc" stroke="#9ec4bc"/>
+              <rect x="148" y="264" width="170" height="66" rx="5" fill="#bdd4cc" stroke="#9ec4bc"/>
+              <rect x="354" y="264" width="145" height="66" rx="5" fill="#bdd4cc" stroke="#9ec4bc"/>
+              <rect x="522" y="175" width="90" height="63" rx="5" fill="#bdd4cc" stroke="#9ec4bc"/>
+              <rect x="522" y="264" width="90" height="66" rx="5" fill="#bdd4cc" stroke="#9ec4bc"/>
+            </svg>
+            <div class="map-cluster" style="left:8%;top:46%;width:42px;height:42px;background:#ef4444;font-size:14px">28</div>
+            <div class="map-cluster" style="left:38%;top:44%;width:34px;height:34px;background:#f97316;font-size:12px">14</div>
+            <div class="map-cluster" style="left:62%;top:48%;width:28px;height:28px;background:#0891b2;font-size:11px">9</div>
+            <div class="map-cluster" style="left:28%;top:72%;width:26px;height:26px;background:#22c55e;font-size:10px">7</div>
+            <div class="map-cluster" style="left:76%;top:33%;width:24px;height:24px;background:#6d28d9;font-size:10px">5</div>
+            <div class="map-controls">
+              <div class="map-ctrl">+</div><div class="map-ctrl">−</div><div class="map-ctrl">🌡</div>
+            </div>
+            <div class="map-legend">
+              <div style="font-weight:700;margin-bottom:4px;font-size:11px">Issue Clusters</div>
+              <div class="map-legend-row"><div class="dot" style="background:#ef4444"></div>Critical (28)</div>
+              <div class="map-legend-row"><div class="dot" style="background:#f97316"></div>High (14)</div>
+              <div class="map-legend-row"><div class="dot" style="background:#0891b2"></div>Medium (9)</div>
+              <div class="map-legend-row"><div class="dot" style="background:#22c55e"></div>Resolved (7)</div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card mb16">
+            <div class="sec-title" style="margin-bottom:12px">🏢 Department SLA Performance</div>
+            <div class="prog-row"><div class="prog-label">Roads &amp; Infra</div><div class="prog-track"><div class="prog-fill" style="width:62%;background:var(--orange)"></div></div><div class="prog-pct" style="color:var(--orange)">62%</div></div>
+            <div class="prog-row"><div class="prog-label">Water Board</div><div class="prog-track"><div class="prog-fill" style="width:78%;background:var(--accent)"></div></div><div class="prog-pct" style="color:var(--accent)">78%</div></div>
+            <div class="prog-row"><div class="prog-label">Electrical</div><div class="prog-track"><div class="prog-fill" style="width:85%;background:var(--green)"></div></div><div class="prog-pct" style="color:var(--green)">85%</div></div>
+            <div class="prog-row"><div class="prog-label">Sanitation</div><div class="prog-track"><div class="prog-fill" style="width:71%;background:var(--cyan)"></div></div><div class="prog-pct" style="color:var(--cyan)">71%</div></div>
+            <div class="prog-row" style="margin-bottom:0"><div class="prog-label">Parks</div><div class="prog-track"><div class="prog-fill" style="width:90%;background:var(--green)"></div></div><div class="prog-pct" style="color:var(--green)">90%</div></div>
+          </div>
+          <div class="card">
+            <div class="sec-title" style="margin-bottom:12px">⏱ Avg Resolution Time</div>
+            <div class="hs-row">
+              <div style="font-size:22px">🕳</div>
+              <div class="hs-info"><div class="hs-name">Pothole</div><div class="hs-sub">Roads &amp; Infrastructure</div></div>
+              <div style="font-size:14px;font-weight:800;color:var(--red)">6.4 d</div>
+            </div>
+            <div class="hs-row">
+              <div style="font-size:22px">💧</div>
+              <div class="hs-info"><div class="hs-name">Water Leak</div><div class="hs-sub">Water Board</div></div>
+              <div style="font-size:14px;font-weight:800;color:var(--orange)">3.8 d</div>
+            </div>
+            <div class="hs-row">
+              <div style="font-size:22px">💡</div>
+              <div class="hs-info"><div class="hs-name">Streetlight</div><div class="hs-sub">Electrical Dept.</div></div>
+              <div style="font-size:14px;font-weight:800;color:var(--yellow)">2.1 d</div>
+            </div>
+            <div class="hs-row">
+              <div style="font-size:22px">🗑</div>
+              <div class="hs-info"><div class="hs-name">Garbage</div><div class="hs-sub">Sanitation Dept.</div></div>
+              <div style="font-size:14px;font-weight:800;color:var(--green)">1.3 d</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         PANEL · ISSUE QUEUE
+    ══════════════════════════════════════════ -->
+    <div class="content panel" id="panel-queue">
+      <div class="filter-row">
+        <button class="filter-btn active">All (247)</button>
+        <button class="filter-btn">🚨 Critical (38)</button>
+        <button class="filter-btn">🟠 High (62)</button>
+        <button class="filter-btn">🟡 Unassigned (41)</button>
+        <button class="filter-btn">⏰ SLA Breach (14)</button>
+        <button class="filter-btn">🔁 Reopened (8)</button>
+      </div>
+      <div class="card">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>Ticket</th><th>Category</th><th>Location</th><th>Priority</th>
+              <th>Status</th><th>Department</th><th>SLA</th><th>Reports</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span style="font-family:monospace;font-weight:700;color:var(--accent)">#TKT-00341</span></td>
+              <td><span class="badge badge-pothole">🕳 Pothole</span></td>
+              <td><span style="font-size:12px">MG Road, W7</span></td>
+              <td><span class="badge badge-critical">🚨 Critical</span></td>
+              <td><span class="status s-inprogress">In Progress</span></td>
+              <td><span class="dept-badge">🛣 Roads</span></td>
+              <td><span class="sla-chip sla-over">+2d over</span></td>
+              <td><strong style="color:var(--accent2)">12</strong></td>
+              <td><button class="btn btn-primary btn-sm" onclick="toast('📋 TKT-00341 management opened')">Manage</button></td>
+            </tr>
+            <tr>
+              <td><span style="font-family:monospace;font-weight:700;color:var(--accent)">#TKT-00298</span></td>
+              <td><span class="badge badge-street">💡 Streetlight</span></td>
+              <td>Jayanagar, W9</td>
+              <td><span class="badge badge-high">High</span></td>
+              <td><span class="status s-assigned">Assigned</span></td>
+              <td><span class="dept-badge">⚡ Electrical</span></td>
+              <td><span class="sla-chip sla-warn">1d left</span></td>
+              <td>4</td>
+              <td><button class="btn btn-outline btn-sm" onclick="toast('📋 TKT-00298 details opened')">View</button></td>
+            </tr>
+            <tr>
+              <td><span style="font-family:monospace;font-weight:700;color:var(--accent)">#TKT-00310</span></td>
+              <td><span class="badge badge-garbage">🗑 Garbage</span></td>
+              <td>Indiranagar, W11</td>
+              <td><span class="badge badge-medium">Medium</span></td>
+              <td><span class="status s-verified">Verified</span></td>
+              <td><span class="dept-badge" style="color:var(--red);border-color:var(--red)">— Unassigned</span></td>
+              <td><span class="sla-chip sla-ok">3d left</span></td>
+              <td>7</td>
+              <td><button class="btn btn-primary btn-sm" onclick="toast('✅ TKT-00310 assigned to Sanitation')">Assign →</button></td>
+            </tr>
+            <tr>
+              <td><span style="font-family:monospace;font-weight:700;color:var(--accent)">#TKT-00289</span></td>
+              <td><span class="badge badge-water">💧 Water Leak</span></td>
+              <td>Koramangala, W12</td>
+              <td><span class="badge badge-high">High</span></td>
+              <td><span class="status s-assigned">Assigned</span></td>
+              <td><span class="dept-badge">💧 Water Board</span></td>
+              <td><span class="sla-chip sla-warn">12h left</span></td>
+              <td>8</td>
+              <td><button class="btn btn-outline btn-sm">View</button></td>
+            </tr>
+            <tr>
+              <td><span style="font-family:monospace;font-weight:700;color:var(--accent)">#TKT-00276</span></td>
+              <td><span class="badge badge-pothole">🕳 Pothole</span></td>
+              <td>HSR Layout, W6</td>
+              <td><span class="badge badge-low">Low</span></td>
+              <td><span class="status s-submitted">Submitted</span></td>
+              <td><span class="dept-badge" style="color:var(--red);border-color:var(--red)">— Unassigned</span></td>
+              <td><span class="sla-chip sla-ok">5d left</span></td>
+              <td>2</td>
+              <td><button class="btn btn-primary btn-sm" onclick="toast('✅ TKT-00276 assigned to Roads dept')">Assign →</button></td>
+            </tr>
+            <tr>
+              <td><span style="font-family:monospace;font-weight:700;color:var(--accent)">#TKT-00261</span></td>
+              <td><span class="badge badge-other">❓ Other</span></td>
+              <td>BTM Layout, W5</td>
+              <td><span class="badge badge-critical">🚨 Critical</span></td>
+              <td><span class="status s-reopened">Reopened</span></td>
+              <td><span class="dept-badge">🛣 Roads</span></td>
+              <td><span class="sla-chip sla-over">+5d over</span></td>
+              <td>3</td>
+              <td><button class="btn btn-danger btn-sm" onclick="toast('🚨 TKT-00261 escalated to Ward Commissioner')">Escalate</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         PANEL · ANALYTICS
+    ══════════════════════════════════════════ -->
+    <div class="content panel" id="panel-analytics">
+      <div class="g2">
+        <div class="card">
+          <div class="sec-title" style="margin-bottom:14px">📊 Issues by Category (Nov 2026)</div>
+          <div class="prog-row"><div class="prog-label">🕳 Pothole</div><div class="prog-track"><div class="prog-fill" style="width:48%;background:var(--accent2)"></div></div><div class="prog-pct">48%</div></div>
+          <div class="prog-row"><div class="prog-label">💧 Water Leak</div><div class="prog-track"><div class="prog-fill" style="width:22%;background:var(--cyan)"></div></div><div class="prog-pct">22%</div></div>
+          <div class="prog-row"><div class="prog-label">💡 Streetlight</div><div class="prog-track"><div class="prog-fill" style="width:16%;background:var(--yellow)"></div></div><div class="prog-pct">16%</div></div>
+          <div class="prog-row"><div class="prog-label">🗑 Garbage</div><div class="prog-track"><div class="prog-fill" style="width:10%;background:var(--green)"></div></div><div class="prog-pct">10%</div></div>
+          <div class="prog-row" style="margin-bottom:0"><div class="prog-label">❓ Other</div><div class="prog-track"><div class="prog-fill" style="width:4%;background:var(--muted)"></div></div><div class="prog-pct">4%</div></div>
+        </div>
+        <div class="card">
+          <div class="sec-title" style="margin-bottom:12px">📈 Reports Per Day — Last 7 Days</div>
+          <div class="bar-chart-row">
+            <div class="bar-col"><div class="bar-fill" style="height:60px;background:var(--accent)"></div><div class="bar-label">Mon</div><div class="bar-val">24</div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:45px;background:var(--accent)"></div><div class="bar-label">Tue</div><div class="bar-val">18</div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:75px;background:var(--accent)"></div><div class="bar-label">Wed</div><div class="bar-val">30</div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:50px;background:var(--accent)"></div><div class="bar-label">Thu</div><div class="bar-val">20</div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:90px;background:var(--red)"></div><div class="bar-label">Fri</div><div class="bar-val">36</div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:38px;background:var(--accent)"></div><div class="bar-label">Sat</div><div class="bar-val">15</div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:28px;background:var(--green)"></div><div class="bar-label">Sun</div><div class="bar-val">11</div></div>
+          </div>
+          <div style="font-size:11.5px;color:var(--muted);text-align:right;margin-top:6px">Total: <strong>154</strong> this week</div>
+        </div>
+      </div>
+      <div class="g2">
+        <div class="card">
+          <div class="sec-title" style="margin-bottom:12px">🤖 AI Correction Rate &amp; Training</div>
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
+            <div style="text-align:center">
+              <div style="font-size:38px;font-weight:900;color:var(--green)">8.4%</div>
+              <div style="font-size:11.5px;color:var(--muted)">User corrections</div>
+            </div>
+            <div style="flex:1">
+              <div style="font-size:12px;color:var(--muted);margin-bottom:9px">Top corrected pairs (→ training data):</div>
+              <div class="prog-row"><div class="prog-label" style="width:120px">Other → Pothole</div><div class="prog-track"><div class="prog-fill" style="width:62%;background:var(--accent2)"></div></div><div class="prog-pct">62%</div></div>
+              <div class="prog-row" style="margin-bottom:0"><div class="prog-label" style="width:120px">Garbage → Water</div><div class="prog-track"><div class="prog-fill" style="width:28%;background:var(--cyan)"></div></div><div class="prog-pct">28%</div></div>
+            </div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);background:var(--bg);border-radius:8px;padding:9px 12px;border:1px solid var(--border)">
+            🧠 <strong>1,247 corrections</strong> collected this month — feeding the re-training pipeline. Model accuracy improved from 87% → 92%.
+          </div>
+        </div>
+        <div class="card">
+          <div class="sec-title" style="margin-bottom:12px">📱 Offline Sync Status</div>
+          <div class="g2" style="margin-bottom:12px">
+            <div style="text-align:center;background:#f0fdf4;border-radius:10px;padding:14px;border:1px solid #bbf7d0">
+              <div style="font-size:30px;font-weight:900;color:var(--green)">1,247</div>
+              <div style="font-size:11.5px;color:var(--muted)">Synced today</div>
+            </div>
+            <div style="text-align:center;background:#fff7ed;border-radius:10px;padding:14px;border:1px solid #fed7aa">
+              <div style="font-size:30px;font-weight:900;color:var(--orange)">34</div>
+              <div style="font-size:11.5px;color:var(--muted)">Pending sync</div>
+            </div>
+          </div>
+          <div style="font-size:12.5px;color:var(--muted)">Last sync: 2 minutes ago</div>
+          <div style="font-size:12.5px;color:var(--muted);margin-top:3px">Avg offline queue: 12 reports · Coverage: 98% of wards</div>
+          <div style="margin-top:10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:9px 12px;font-size:12.5px;color:var(--accent);font-weight:600">
+            ✅ All low-connectivity areas have offline-first support enabled
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         PANEL · PREDICTIONS
+    ══════════════════════════════════════════ -->
+    <div class="content panel" id="panel-predictions">
+      <div class="ai-banner" style="margin-bottom:20px">
+        <div class="ai-icon" style="background:var(--red)">🔮</div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:14px">Root-Cause &amp; Prediction Engine</div>
+          <div style="font-size:12.5px;color:#5b21b6;margin-top:2px">Locations with recurring issues flagged for permanent remediation. Updated daily using 3-year historical data.</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="toast('📄 Prediction report generated and sent to Ward Commissioner')">Generate Full Report</button>
+      </div>
+
+      <div class="g65">
+        <div class="card">
+          <div class="sec-title" style="margin-bottom:14px">🔥 Repeat Problem Hotspots</div>
+          <div class="hs-row">
+            <div class="hs-rank">1</div>
+            <div class="hs-info">
+              <div class="hs-name">MG Road near Bus Stop #42</div>
+              <div class="hs-sub">🕳 Pothole · 4 recurrences this year · Last: Nov 2026</div>
+              <div class="chips"><span class="chip">🌧 Monsoon flooding</span><span class="chip">🛣 Poor sub-base</span><span class="chip">🚌 Heavy bus traffic</span></div>
+            </div>
+            <div style="text-align:right">
+              <div class="hs-count">×4 / year</div>
+              <button class="btn btn-danger btn-sm" style="margin-top:5px;font-size:11px" onclick="toast('🚩 MG Road flagged for permanent infrastructure fix')">Flag Perm. Fix</button>
+            </div>
+          </div>
+          <div class="hs-row">
+            <div class="hs-rank">2</div>
+            <div class="hs-info">
+              <div class="hs-name">Koramangala 5th Block Junction</div>
+              <div class="hs-sub">💧 Water Leak · 3 recurrences · Last: Oct 2026</div>
+              <div class="chips"><span class="chip">🔧 Aging pipes (1980s)</span><span class="chip">💧 High pressure zone</span></div>
+            </div>
+            <div style="text-align:right">
+              <div class="hs-count">×3 / year</div>
+              <button class="btn btn-outline btn-sm" style="margin-top:5px;font-size:11px" onclick="toast('📋 Repair history for Koramangala junction loaded')">View History</button>
+            </div>
+          </div>
+          <div class="hs-row">
+            <div class="hs-rank">3</div>
+            <div class="hs-info">
+              <div class="hs-name">Jayanagar 4th Block Park Street</div>
+              <div class="hs-sub">💡 Streetlight · 5 recurrences · Last: Sep 2026</div>
+              <div class="chips"><span class="chip">⚡ Faulty transformer</span><span class="chip">🔌 Old wiring</span></div>
+            </div>
+            <div style="text-align:right">
+              <div class="hs-count">×5 / year</div>
+              <button class="btn btn-danger btn-sm" style="margin-top:5px;font-size:11px" onclick="toast('🚩 Jayanagar flagged for transformer replacement')">Flag Perm. Fix</button>
+            </div>
+          </div>
+          <div class="hs-row">
+            <div class="hs-rank">4</div>
+            <div class="hs-info">
+              <div class="hs-name">BTM Layout 2nd Stage Market</div>
+              <div class="hs-sub">🗑 Garbage · 6 recurrences · Last: Nov 2026</div>
+              <div class="chips"><span class="chip">🗓 No collection schedule</span><span class="chip">📍 Bin capacity too low</span></div>
+            </div>
+            <div style="text-align:right">
+              <div class="hs-count">×6 / year</div>
+              <button class="btn btn-outline btn-sm" style="margin-top:5px;font-size:11px" onclick="toast('📋 BTM garbage history and schedule review opened')">View History</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card mb16">
+            <div class="sec-title" style="margin-bottom:12px">🌧 Seasonal Forecast</div>
+            <div class="hs-row">
+              <span style="font-size:20px;flex-shrink:0">🌧</span>
+              <div class="hs-info"><div class="hs-name">Pre-Monsoon (May–Jun)</div><div class="hs-sub">+340% pothole reports expected</div></div>
+              <span class="badge badge-critical">Prep Now</span>
+            </div>
+            <div class="hs-row">
+              <span style="font-size:20px;flex-shrink:0">🌨</span>
+              <div class="hs-info"><div class="hs-name">Winter (Dec–Jan)</div><div class="hs-sub">+120% water leak reports</div></div>
+              <span class="badge badge-high">Watch</span>
+            </div>
+            <div class="hs-row">
+              <span style="font-size:20px;flex-shrink:0">☀</span>
+              <div class="hs-info"><div class="hs-name">Summer (Mar–Apr)</div><div class="hs-sub">+80% streetlight failures</div></div>
+              <span class="badge badge-medium">Monitor</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="sec-title" style="margin-bottom:12px">💰 Permanent Fix ROI</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Cost comparison: repeated patches vs one permanent fix</div>
+            <div class="hs-row">
+              <div class="hs-info">
+                <div class="hs-name">MG Road Pothole</div>
+                <div class="hs-sub">4× patch = ₹2.4L/yr · One fix = ₹8L</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-weight:800;color:var(--green);font-size:13px">Save ₹24L</div>
+                <div style="font-size:10.5px;color:var(--muted)">over 5 years</div>
+              </div>
+            </div>
+            <div class="hs-row">
+              <div class="hs-info">
+                <div class="hs-name">Koramangala Pipe</div>
+                <div class="hs-sub">3× repair = ₹1.8L/yr · Replace = ₹12L</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-weight:800;color:var(--green);font-size:13px">Save ₹18L</div>
+                <div style="font-size:10.5px;color:var(--muted)">over 5 years</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         PANEL · NOTIFICATIONS
+    ══════════════════════════════════════════ -->
+    <div class="content panel" id="panel-notifications">
+      <div class="g65">
+        <div class="card">
+          <div class="sec-header">
+            <div class="sec-title">🔔 Notifications</div>
+            <button class="btn btn-outline btn-sm" onclick="document.querySelectorAll('.unread-dot').forEach(d=>d.remove());toast('✓ All notifications marked as read')">Mark all read</button>
+          </div>
+          <div class="notif-item">
+            <div class="notif-icon" style="background:#eff6ff">🔄</div>
+            <div style="flex:1">
+              <div class="notif-title">TKT-00341 is now In Progress</div>
+              <div class="notif-sub">Roads &amp; Infrastructure crew dispatched. Estimated repair: Nov 27 · 2h ago</div>
+            </div>
+            <div class="unread-dot"></div>
+          </div>
+          <div class="notif-item">
+            <div class="notif-icon" style="background:#fef3c7">⚠️</div>
+            <div style="flex:1">
+              <div class="notif-title">SLA Breach Alert — TKT-00261</div>
+              <div class="notif-sub">Ticket overdue by 5 days. Automatic escalation triggered · 4h ago</div>
+            </div>
+            <div class="unread-dot" style="background:var(--red)"></div>
+          </div>
+          <div class="notif-item">
+            <div class="notif-icon" style="background:#f0fdf4">✅</div>
+            <div style="flex:1">
+              <div class="notif-title">TKT-00281 Resolved — Rate the fix!</div>
+              <div class="notif-sub">Water pipe repair completed at Koramangala 5th Block. Please rate the resolution · 1d ago</div>
+            </div>
+            <div class="unread-dot"></div>
+          </div>
+          <div class="notif-item">
+            <div class="notif-icon" style="background:#fdf4ff">🔗</div>
+            <div style="flex:1">
+              <div class="notif-title">Your report merged with TKT-00341</div>
+              <div class="notif-sub">12 residents reported the same issue. Combined priority raised to Critical · 2d ago</div>
+            </div>
+          </div>
+          <div class="notif-item">
+            <div class="notif-icon" style="background:#fef9c3">🌧</div>
+            <div style="flex:1">
+              <div class="notif-title">Seasonal Alert: Pothole surge forecast</div>
+              <div class="notif-sub">Pre-monsoon prep recommended for Wards 7, 9, 12. 340% increase predicted · 3d ago</div>
+            </div>
+          </div>
+          <div class="notif-item">
+            <div class="notif-icon" style="background:#f0fdf4">🤖</div>
+            <div style="flex:1">
+              <div class="notif-title">AI Model updated — Accuracy improved to 92%</div>
+              <div class="notif-sub">1,247 user corrections incorporated into the latest re-training run · 4d ago</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="sec-title" style="margin-bottom:14px">⚙️ Notification Preferences</div>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div><div style="font-weight:600;font-size:13px">Status Updates</div><div style="font-size:11.5px;color:var(--muted)">When your ticket changes stage</div></div>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div><div style="font-weight:600;font-size:13px">Duplicate Merges</div><div style="font-size:11.5px;color:var(--muted)">When your report is linked to another</div></div>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div><div style="font-weight:600;font-size:13px">SLA Breach Alerts</div><div style="font-size:11.5px;color:var(--muted)">Authority-only escalation alerts</div></div>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div><div style="font-weight:600;font-size:13px">Seasonal Forecasts</div><div style="font-size:11.5px;color:var(--muted)">Predictive alerts for your ward</div></div>
+              <div class="toggle" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div><div style="font-weight:600;font-size:13px">Push Notifications</div><div style="font-size:11.5px;color:var(--muted)">Mobile &amp; browser push</div></div>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div><div style="font-weight:600;font-size:13px">AI Model Updates</div><div style="font-size:11.5px;color:var(--muted)">When accuracy improves from corrections</div></div>
+              <div class="toggle" onclick="this.classList.toggle('on')"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         PANEL · SETTINGS
+    ══════════════════════════════════════════ -->
+    <div class="content panel" id="panel-settings">
+      <div class="g2">
+        <div class="card">
+          <div class="sec-title" style="margin-bottom:16px">👤 Profile &amp; Access Control</div>
+          <div class="fg">
+            <label class="fl">Role</label>
+            <select class="fsel">
+              <option>🏠 Citizen</option>
+              <option>🏛 Ward Officer</option>
+              <option>🏢 Department Admin</option>
+              <option>🔑 Super Admin</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="fl">Home Ward</label>
+            <input class="fi" value="Ward 7, Bangalore — South Zone">
+          </div>
+          <div class="fg">
+            <label class="fl">Preferred Language</label>
+            <select class="fsel">
+              <option>English</option>
+              <option>हिंदी (Hindi)</option>
+              <option>ಕನ್ನಡ (Kannada)</option>
+              <option>தமிழ் (Tamil)</option>
+              <option>বাংলা (Bengali)</option>
+              <option>मराठी (Marathi)</option>
+            </select>
+          </div>
+          <div class="fg" style="margin-bottom:0">
+            <label class="fl">Mobile Number (for push notifications)</label>
+            <input class="fi" value="+91 98765 43210">
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="sec-title" style="margin-bottom:16px">🔒 Privacy, Trust &amp; Safety</div>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div><div style="font-weight:600;font-size:13px">Default Anonymous Reports</div><div style="font-size:11.5px;color:var(--muted)">Hide name from public by default</div></div>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div><div style="font-weight:600;font-size:13px">Fake-Image Detection</div><div style="font-size:11.5px;color:var(--muted)">Auto-reject AI-manipulated photos</div></div>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div><div style="font-weight:600;font-size:13px">Rate Limiting</div><div style="font-size:11.5px;color:var(--muted)">Max 10 reports/day per account</div></div>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div><div style="font-weight:600;font-size:13px">Voice Input (Accessibility)</div><div style="font-size:11.5px;color:var(--muted)">Enable voice reporting for all forms</div></div>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div><div style="font-weight:600;font-size:13px">Spam Prevention</div><div style="font-size:11.5px;color:var(--muted)">CAPTCHA + duplicate fingerprinting</div></div>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div><div style="font-weight:600;font-size:13px">Offline-First Storage</div><div style="font-size:11.5px;color:var(--muted)">Save reports locally when no connection</div></div>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+          </div>
+          <div style="margin-top:16px">
+            <button class="btn btn-primary" style="width:100%" onclick="toast('✅ Settings saved successfully')">Save Settings</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- ════ TOAST ════ -->
+<div id="toast">🔔 Notification</div>
+
+<script>
+  /* ── Navigation ── */
+  const PANELS = ['report','mytickets','publicmap','dashboard','queue','analytics','predictions','notifications','settings'];
+  const TITLES = {
+    report:'📸 Report an Issue',
+    mytickets:'🎫 My Tickets',
+    publicmap:'🗺️ Public Map — Ward 7',
+    dashboard:'📊 Authority Dashboard',
+    queue:'📋 Issue Queue',
+    analytics:'📈 Analytics &amp; Insights',
+    predictions:'🔮 Predictions &amp; Root-Cause',
+    notifications:'🔔 Notifications',
+    settings:'⚙️ Settings &amp; Privacy'
+  };
+
+  function show(id) {
+    PANELS.forEach(p => {
+      const el = document.getElementById('panel-' + p);
+      if (el) el.classList.toggle('active', p === id);
+    });
+    document.querySelectorAll('.nav-item').forEach(n => {
+      const oc = n.getAttribute('onclick') || '';
+      n.classList.toggle('active', oc.includes("'" + id + "'"));
+    });
+    const pt = document.getElementById('pageTitle');
+    pt.innerHTML = TITLES[id] || 'CivicPulse';
+    // hide offline bar when navigating away from report
+    if (id !== 'report') document.getElementById('offlineBar').style.display = 'none';
+  }
+
+  /* ── Submit Report ── */
+  function submitReport() {
+    const bar = document.getElementById('offlineBar');
+    bar.style.display = 'flex';
+    toast('📡 Checking connectivity…');
+    setTimeout(() => {
+      bar.style.display = 'none';
+      toast('✅ Report #TKT-00342 submitted! You will receive push notifications as it progresses.');
+      setTimeout(() => show('mytickets'), 1200);
+    }, 2400);
+  }
+
+  /* ── Filter buttons ── */
+  document.querySelectorAll('.filter-row').forEach(row => {
+    row.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', function () {
+        row.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+      });
+    });
+  });
+
+  /* ── Toast ── */
+  let toastTimer;
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+  }
+</script>
+</body>
+</html>
